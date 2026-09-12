@@ -339,8 +339,6 @@
             file.type.includes('image/') || 
             file.name.match(/\.(doc|docx|xls|xlsx)$/i)
         ) {
-            // For Images, Word, and Excel documents, default to 1 page count detection
-            // (or user can adjust copies if needed)
             totalPages = 1;
             document.getElementById('pageCount').innerText = totalPages;
             calculatePrice();
@@ -381,6 +379,43 @@
         document.getElementById('totalPrice').innerText = total.toFixed(2);
     }
 
+    // Google Drive Upload Function
+    async function uploadFileToDrive(fileInputObj) {
+        const file = fileInputObj.files[0];
+        if (!file) return "";
+
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async function () {
+                const base64Data = reader.result.split(',')[1];
+                const payload = {
+                    filename: file.name,
+                    mimeType: file.type,
+                    base64: base64Data
+                };
+
+                try {
+                    // Paspasa o ilisi kini sa imong Google Apps Script Web App URL (sa sulod sa quotation marks)
+                    const responseUrl = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL"; 
+                    const res = await fetch(responseUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await res.json();
+                    if (result.status === "success") {
+                        resolve(result.fileUrl);
+                    } else {
+                        reject(result.message);
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
     document.getElementById('submitBtn').addEventListener('click', async function() {
         const customerName = document.getElementById('customerName').value.trim();
 
@@ -397,7 +432,7 @@
 
         const btn = document.getElementById('submitBtn');
         btn.disabled = true; 
-        btn.innerText = "Processing Order...";
+        btn.innerText = "Uploading to Drive...";
 
         const fileInput = document.getElementById('fileInput');
         const file = fileInput.files[0];
@@ -412,10 +447,21 @@
         const totalPaperUsed = totalPages * copies;
 
         try {
+            // I-upload sa Google Drive pinaagi sa Apps Script una i-save sa Firestore
+            let fileUrl = "";
+            try {
+                fileUrl = await uploadFileToDrive(fileInput);
+            } catch (uploadErr) {
+                console.error("Drive upload error:", uploadErr);
+                alert("Dili kasandigan ang pag-upload sa Drive pero ipadayon nato ang order. Pwede ra nimo i-add ang link manually sa admin panel kung gikinahanglan.");
+            }
+
+            btn.innerText = "Processing Order...";
             const docRef = await addDoc(collection(db, "print_jobs"), {
                 customerName: customerName,
                 fileName: file.name,
                 fileType: file.type || "Office/Image Document",
+                fileUrl: fileUrl, // Dinhi ma-save ang direktang Google Drive link para mabasa sa Admin.html
                 totalPages: totalPages,
                 copies: copies,
                 paperSize: paperSize,
