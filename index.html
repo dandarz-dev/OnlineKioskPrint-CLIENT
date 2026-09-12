@@ -225,11 +225,6 @@
                 <p>1. Details -> 2. Check Price -> 3. Send via Messenger</p>
             </div>
         </div>
-
-        <div class="form-group">
-            <label>Customer Name</label>
-            <input type="text" id="customerName" placeholder="Enter your full name">
-        </div>
         
         <div class="form-group">
             <label>1. File Name / Document Title</label>
@@ -244,8 +239,12 @@
         <div class="form-group">
             <label>3. Paper Size</label>
             <select id="paperSize">
-                <option value="short">Short / A4</option>
-                <option value="long">Long</option>
+                <option value="short">Short (Letter) - 8.5 x 11 in</option>
+                <option value="a4">A4 - 8.27 x 11.69 in</option>
+                <option value="long">Long (Folio/Legal) - 8.5 x 13 in</option>
+                <option value="a5">A5 - 5.83 x 8.27 in</option>
+                <option value="executive">Executive - 7.25 x 10.5 in</option>
+                <option value="b5">B5 - 6.93 x 9.84 in</option>
             </select>
         </div>
 
@@ -254,15 +253,6 @@
             <select id="printType">
                 <option value="mono">Monochrome / Black & White</option>
                 <option value="color">Color Text or Picture</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>5. Select Printer Model</label>
-            <select id="printerModel">
-                <option value="Epson L3110 Series">Epson L3110 Series (USB/Local)</option>
-                <option value="HP LaserJet 107w">HP LaserJet 107w (Wireless)</option>
-                <option value="Canon G2010 Series">Canon G2010 Series (Tank)</option>
             </select>
         </div>
 
@@ -313,7 +303,8 @@
         const size = document.getElementById('paperSize').value; 
         const type = document.getElementById('printType').value; 
 
-        if (size === 'short') {
+        // Adjust pricing logic as needed for the expanded paper options
+        if (size === 'short' || size === 'a4' || size === 'a5' || size === 'executive' || size === 'b5') {
             return type === 'mono' ? 1.00 : 2.00;
         } else {
             return type === 'mono' ? 2.00 : 3.00;
@@ -333,14 +324,7 @@
     calculatePrice();
 
     document.getElementById('submitBtn').addEventListener('click', async function() {
-        const customerName = document.getElementById('customerName').value.trim();
         const fileName = document.getElementById('fileNameInput').value.trim();
-
-        if(!customerName) {
-            alert("Please enter your name.");
-            document.getElementById('customerName').focus();
-            return;
-        }
 
         if(!fileName) {
             alert("Please enter the file name.");
@@ -356,13 +340,12 @@
         const totalPrice = parseFloat(document.getElementById('totalPrice').innerText);
         const paperSize = document.getElementById('paperSize').options[document.getElementById('paperSize').selectedIndex].text;
         const printType = document.getElementById('printType').options[document.getElementById('printType').selectedIndex].text;
-        const printerModel = document.getElementById('printerModel').value;
         const copies = parseInt(document.getElementById('copies').value);
         const totalPaperUsed = totalPages * copies;
 
         try {
             const docRef = await addDoc(collection(db, "print_jobs"), {
-                customerName: customerName,
+                customerName: "Anonymous / Walk-in",
                 fileName: fileName,
                 fileType: "Messenger Upload",
                 fileUrl: "",
@@ -370,7 +353,6 @@
                 copies: copies,
                 paperSize: paperSize,
                 printType: printType,
-                printerModel: printerModel,
                 amountDue: totalPrice,
                 status: "Pending Payment",
                 timestamp: new Date()
