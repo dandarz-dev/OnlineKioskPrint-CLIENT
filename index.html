@@ -140,21 +140,6 @@
             padding-right: 40px;
         }
 
-        input[type="file"] {
-            font-size: 13px;
-        }
-
-        input[type="file"]::file-selector-button {
-            background: rgba(20, 184, 166, 0.2);
-            border: none;
-            padding: 8px 12px;
-            border-radius: 8px;
-            color: #5eead4;
-            font-weight: 500;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-
         input:focus, select:focus {
             border-color: #14b8a6;
             box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
@@ -192,7 +177,7 @@
         button {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            background: linear-gradient(135deg, #0084FF 0%, #00c6ff 100%);
             color: white;
             border: none;
             border-radius: 12px;
@@ -200,7 +185,7 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 18px;
-            box-shadow: 0 4px 20px rgba(20, 184, 166, 0.4);
+            box-shadow: 0 4px 20px rgba(0, 132, 255, 0.4);
             touch-action: manipulation;
         }
 
@@ -237,7 +222,7 @@
             <img src="mylogo.png" alt="Dandarz Logo" class="logo">
             <div class="header-text">
                 <h2>Smart Print Kiosk Portal</h2>
-                <p>1. Details -> 2. Attach -> 3. Configure -> 4. Print</p>
+                <p>1. Details -> 2. Check Price -> 3. Send via Messenger</p>
             </div>
         </div>
 
@@ -247,12 +232,17 @@
         </div>
         
         <div class="form-group">
-            <label>1. Attach File (PDF, Word, Excel, Images)</label>
-            <input type="file" id="fileInput" accept="application/pdf, .doc, .docx, .xls, .xlsx, image/*">
+            <label>1. File Name / Document Title</label>
+            <input type="text" id="fileNameInput" placeholder="e.g., Resume.pdf or Math_Assignment">
         </div>
 
         <div class="form-group">
-            <label>2. Paper Size</label>
+            <label>2. Estimated Pages</label>
+            <input type="number" id="manualPages" value="1" min="1">
+        </div>
+
+        <div class="form-group">
+            <label>3. Paper Size</label>
             <select id="paperSize">
                 <option value="short">Short / A4</option>
                 <option value="long">Long</option>
@@ -260,7 +250,7 @@
         </div>
 
         <div class="form-group">
-            <label>3. Content Type & Pricing</label>
+            <label>4. Content Type & Pricing</label>
             <select id="printType">
                 <option value="mono">Monochrome / Black & White</option>
                 <option value="color">Color Text or Picture</option>
@@ -268,7 +258,7 @@
         </div>
 
         <div class="form-group">
-            <label>4. Select Printer Model</label>
+            <label>5. Select Printer Model</label>
             <select id="printerModel">
                 <option value="Epson L3110 Series">Epson L3110 Series (USB/Local)</option>
                 <option value="HP LaserJet 107w">HP LaserJet 107w (Wireless)</option>
@@ -282,11 +272,11 @@
         </div>
 
         <div class="price-box">
-            <p>Pages Detected: <span id="pageCount" style="font-weight:600; color:#ffffff;">0</span> | Rate: ₱<span id="unitRate">1.00</span>/page</p>
+            <p>Total Estimated Price | Rate: ₱<span id="unitRate">1.00</span>/page</p>
             <h3>₱<span id="totalPrice">0.00</span></h3>
         </div>
 
-        <button id="submitBtn">Proceed to Print</button>
+        <button id="submitBtn">Send Order & File via Messenger</button>
     </div>
     
     <div class="footer-credit">
@@ -294,7 +284,7 @@
     </div>
 </div>
 
-<!-- Firebase SDK & Logic -->
+<!-- Firebase SDK & Messenger Redirection Logic -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
     import { getFirestore, collection, addDoc, doc, updateDoc, increment, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
@@ -314,50 +304,10 @@
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
-    let totalPages = 0;
-
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-    document.getElementById('fileInput').addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.type === 'application/pdf') {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-                const pdf = await loadingTask.promise;
-                totalPages = pdf.numPages;
-                document.getElementById('pageCount').innerText = totalPages;
-                calculatePrice();
-            } catch (error) {
-                console.error("PDF parsing error:", error);
-                alert("Unable to read the PDF file. Please try another file.");
-                resetFileInput(e);
-            }
-        } else if (
-            file.type.includes('image/') || 
-            file.name.match(/\.(doc|docx|xls|xlsx)$/i)
-        ) {
-            totalPages = 1;
-            document.getElementById('pageCount').innerText = totalPages;
-            calculatePrice();
-        } else {
-            alert('Please upload a valid PDF, Word, Excel, or Image file.');
-            resetFileInput(e);
-        }
-    });
-
-    function resetFileInput(e) {
-        e.target.value = '';
-        totalPages = 0;
-        document.getElementById('pageCount').innerText = '0';
-        calculatePrice();
-    }
-
     document.getElementById('paperSize').addEventListener('change', calculatePrice);
     document.getElementById('printType').addEventListener('change', calculatePrice);
     document.getElementById('copies').addEventListener('input', calculatePrice);
+    document.getElementById('manualPages').addEventListener('input', calculatePrice);
 
     function getPricePerPage() {
         const size = document.getElementById('paperSize').value; 
@@ -374,50 +324,17 @@
         const pricePerPage = getPricePerPage();
         document.getElementById('unitRate').innerText = pricePerPage.toFixed(2);
         
+        const totalPages = parseInt(document.getElementById('manualPages').value) || 1;
         const copies = parseInt(document.getElementById('copies').value) || 1;
         const total = totalPages * pricePerPage * copies;
         document.getElementById('totalPrice').innerText = total.toFixed(2);
     }
-
-    // Google Drive Upload Function
-    async function uploadFileToDrive(fileInputObj) {
-        const file = fileInputObj.files[0];
-        if (!file) return "";
-
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async function () {
-                const base64Data = reader.result.split(',')[1];
-                const payload = {
-                    filename: file.name,
-                    mimeType: file.type,
-                    base64: base64Data
-                };
-
-                try {
-                    // Paspasa o ilisi kini sa imong Google Apps Script Web App URL (sa sulod sa quotation marks)
-                    const responseUrl = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL"; 
-                    const res = await fetch(responseUrl, {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await res.json();
-                    if (result.status === "success") {
-                        resolve(result.fileUrl);
-                    } else {
-                        reject(result.message);
-                    }
-                } catch (err) {
-                    reject(err);
-                }
-            };
-            reader.onerror = error => reject(error);
-        });
-    }
+    
+    calculatePrice();
 
     document.getElementById('submitBtn').addEventListener('click', async function() {
         const customerName = document.getElementById('customerName').value.trim();
+        const fileName = document.getElementById('fileNameInput').value.trim();
 
         if(!customerName) {
             alert("Please enter your name.");
@@ -425,43 +342,30 @@
             return;
         }
 
-        if(totalPages === 0) {
-            alert("Please upload a file before proceeding.");
+        if(!fileName) {
+            alert("Please enter the file name.");
+            document.getElementById('fileNameInput').focus();
             return;
         }
 
         const btn = document.getElementById('submitBtn');
         btn.disabled = true; 
-        btn.innerText = "Uploading to Drive...";
+        btn.innerText = "Saving Order...";
 
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
+        const totalPages = parseInt(document.getElementById('manualPages').value) || 1;
         const totalPrice = parseFloat(document.getElementById('totalPrice').innerText);
         const paperSize = document.getElementById('paperSize').options[document.getElementById('paperSize').selectedIndex].text;
         const printType = document.getElementById('printType').options[document.getElementById('printType').selectedIndex].text;
-        
-        const printerModelSelect = document.getElementById('printerModel');
-        const printerModel = printerModelSelect.value;
-        
+        const printerModel = document.getElementById('printerModel').value;
         const copies = parseInt(document.getElementById('copies').value);
         const totalPaperUsed = totalPages * copies;
 
         try {
-            // I-upload sa Google Drive pinaagi sa Apps Script una i-save sa Firestore
-            let fileUrl = "";
-            try {
-                fileUrl = await uploadFileToDrive(fileInput);
-            } catch (uploadErr) {
-                console.error("Drive upload error:", uploadErr);
-                alert("Dili kasandigan ang pag-upload sa Drive pero ipadayon nato ang order. Pwede ra nimo i-add ang link manually sa admin panel kung gikinahanglan.");
-            }
-
-            btn.innerText = "Processing Order...";
             const docRef = await addDoc(collection(db, "print_jobs"), {
                 customerName: customerName,
-                fileName: file.name,
-                fileType: file.type || "Office/Image Document",
-                fileUrl: fileUrl, // Dinhi ma-save ang direktang Google Drive link para mabasa sa Admin.html
+                fileName: fileName,
+                fileType: "Messenger Upload",
+                fileUrl: "",
                 totalPages: totalPages,
                 copies: copies,
                 paperSize: paperSize,
@@ -485,22 +389,18 @@
                 });
             }
 
-            alert(`Thank you, ${customerName}! Your order was successful.\nTransaction ID: ${docRef.id}\nYour print job has been routed to: ${printerModel}`);
+            alert(`Order saved successfully! You will now be redirected to Messenger to send your file.\nTransaction ID: ${docRef.id}`);
             
-            // Clear inputs
-            document.getElementById('customerName').value = '';
-            fileInput.value = '';
-            totalPages = 0;
-            document.getElementById('pageCount').innerText = '0';
-            document.getElementById('copies').value = '1';
-            calculatePrice();
+            // Replace with your Messenger link
+            const messengerLink = "https://m.me/danilo.darantinao"; 
+            
+            window.location.href = messengerLink;
             
         } catch (e) {
             console.error("Error adding document: ", e);
-            alert("Database connection error. Please check your internet connection or Firebase Firestore rules.");
-        } finally {
+            alert("Connection error. Please check your internet connection.");
             btn.disabled = false;
-            btn.innerText = "Proceed to Print";
+            btn.innerText = "Send Order & File via Messenger";
         }
     });
 </script>
