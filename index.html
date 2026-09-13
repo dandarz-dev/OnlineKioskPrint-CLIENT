@@ -303,7 +303,6 @@
         const size = document.getElementById('paperSize').value; 
         const type = document.getElementById('printType').value; 
 
-        // Adjust pricing logic as needed for the expanded paper options
         if (size === 'short' || size === 'a4' || size === 'a5' || size === 'executive' || size === 'b5') {
             return type === 'mono' ? 1.00 : 2.00;
         } else {
@@ -373,10 +372,12 @@
 
             alert(`Order saved successfully! You will now be redirected to Messenger to send your file.\nTransaction ID: ${docRef.id}`);
             
-            // Replace with your Messenger link
-            const messengerLink = "https://m.me/danilo.darantinao"; 
+            // Messenger Link optimized for Android & iOS
+            const messengerUrl = "https://m.me/danilo.darantinao"; 
             
-            window.location.href = messengerLink;
+            setTimeout(() => {
+                window.location.replace(messengerUrl);
+            }, 500);
             
         } catch (e) {
             console.error("Error adding document: ", e);
